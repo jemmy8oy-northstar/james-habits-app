@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Balenthiran.Habits.Abstractions/Balenthiran.Habits.Abstractions.csproj" />
+  <Project Path="Balenthiran.Habits.WebApi/Balenthiran.Habits.WebApi.csproj" />
+  <Project Path="Balenthiran.Habits.DataModels/Balenthiran.Habits.DataModels.csproj" />
+  <Project Path="Balenthiran.Habits.Database/Balenthiran.Habits.Database.csproj" />
+  <Project Path="Balenthiran.Habits.DomainModels/Balenthiran.Habits.DomainModels.csproj" />
+  <Project Path="Balenthiran.Habits.EntityModels/Balenthiran.Habits.EntityModels.csproj" />
+  <Project Path="Balenthiran.Habits.Services/Balenthiran.Habits.Services.csproj" />
+</Solution>
