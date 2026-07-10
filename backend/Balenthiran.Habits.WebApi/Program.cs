@@ -1,6 +1,7 @@
 using Scalar.AspNetCore;
 using Balenthiran.Habits.WebApi;
 using Balenthiran.Habits.WebApi.Routes;
+using Balenthiran.Habits.Abstractions.Services;
 using Balenthiran.Habits.Database;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,9 +22,15 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetService<AppDbContext>();
     if (dbContext is null)
+    {
         app.Logger.LogWarning("Skipping database migration — no connection string configured.");
+    }
     else
+    {
         dbContext.Database.Migrate();
+        // Seed the starter habit set on first run so the app is never empty (design A5).
+        await scope.ServiceProvider.GetRequiredService<IHabitService>().EnsureSeededAsync();
+    }
 }
 
 app.UseHttpsRedirection();
