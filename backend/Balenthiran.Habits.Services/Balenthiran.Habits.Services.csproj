@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Balenthiran.Habits.DomainModels/Balenthiran.Habits.DomainModels.csproj" />
+    <ProjectReference Include="../Balenthiran.Habits.DataModels/Balenthiran.Habits.DataModels.csproj" />
     <ProjectReference Include="../Balenthiran.Habits.Abstractions/Balenthiran.Habits.Abstractions.csproj" />
     <ProjectReference Include="../Balenthiran.Habits.Database/Balenthiran.Habits.Database.csproj" />
   </ItemGroup>
