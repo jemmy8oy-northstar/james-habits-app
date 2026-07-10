@@ -27,7 +27,17 @@ using (var scope = app.Services.CreateScope())
     }
     else
     {
-        dbContext.Database.Migrate();
+        // Relational providers migrate; a non-relational provider (the in-memory store used
+        // by integration tests) just materialises its schema. Either way we then seed.
+        if (dbContext.Database.IsRelational())
+        {
+            dbContext.Database.Migrate();
+        }
+        else
+        {
+            dbContext.Database.EnsureCreated();
+        }
+
         // Seed the starter habit set on first run so the app is never empty (design A5).
         await scope.ServiceProvider.GetRequiredService<IHabitService>().EnsureSeededAsync();
     }
@@ -37,6 +47,11 @@ app.UseHttpsRedirection();
 
 app.MapGroup("/api")
     .MapStatusRoutes()
+    .MapHabitRoutes()
+    .MapDayRoutes()
     .WithOpenApi();
 
 app.Run();
+
+/// <summary>Exposed so the integration test host (WebApplicationFactory) can boot the API.</summary>
+public partial class Program;
