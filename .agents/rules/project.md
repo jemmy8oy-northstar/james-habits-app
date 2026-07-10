@@ -46,6 +46,8 @@ All discussion, questions, and remarks happen in the PR — not only in chat res
 - All new API endpoints must be registered within the `.WithOpenApi()` chain in `Program.cs`.
 - Request models (`*Request`) must never include server-managed fields (`Id`, `CreatedAt`, `IsVerified`).
 - Routes live in `Routes/` as extension methods — do not add routes directly in `Program.cs`.
+- Route handlers are **named static methods** (strongly-typed delegates), never inline lambdas. Each returns a concrete `TypedResults` type — `Ok<T>`, `Results<Ok<T>, NotFound>`, `Created<T>`, `NoContent` — never a bare `Results.Ok(...)`/`IResult`. Only a concrete return type lets OpenAPI describe the response body, which the frontend codegen turns into typed hooks (see `docs/specs/openapi-codegen.md`).
+- The response type `T` is a **concrete record**, not a service view interface. Services return interfaces; map them to the concrete record at the route boundary via `IMapper` (`WebApi/Mapper.cs`) — not with hand-written mapping helpers. A shape the service does not return directly gets a concrete `*Response` record.
 - Service methods accept and return interfaces, not concrete types.
 - After adding or changing a backend endpoint, run `npm run codegen` in `frontend/` to regenerate `generatedApi.ts`.
 
