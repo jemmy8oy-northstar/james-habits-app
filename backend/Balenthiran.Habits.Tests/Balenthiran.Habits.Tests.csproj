@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -25,6 +26,7 @@
     <ProjectReference Include="..\Balenthiran.Habits.Abstractions\Balenthiran.Habits.Abstractions.csproj" />
     <ProjectReference Include="..\Balenthiran.Habits.Database\Balenthiran.Habits.Database.csproj" />
     <ProjectReference Include="..\Balenthiran.Habits.EntityModels\Balenthiran.Habits.EntityModels.csproj" />
+    <ProjectReference Include="..\Balenthiran.Habits.WebApi\Balenthiran.Habits.WebApi.csproj" />
   </ItemGroup>
 
 </Project>
