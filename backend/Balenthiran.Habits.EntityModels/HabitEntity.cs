@@ -11,7 +11,7 @@ public class HabitEntity
     public int Id { get; set; }
 
     /// <summary>Display name, e.g. "Sleep", "Read".</summary>
-    public string Name { get; set; } = string.Empty;
+    public required string Name { get; set; }
 
     public HabitType Type { get; set; }
 

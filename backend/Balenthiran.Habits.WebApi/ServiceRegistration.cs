@@ -22,6 +22,8 @@ public static class ServiceRegistration
 
         services.AddAutoMapper(cfg => cfg.AddMaps(AppDomain.CurrentDomain.GetAssemblies()));
         services.AddScoped<IStatusService, StatusService>();
+        services.AddScoped<IHabitCalculator, HabitCalculator>();
+        services.AddScoped<IStarterHabitsProvider, StarterHabitsProvider>();
         services.AddScoped<IHabitService, HabitService>();
         services.AddScoped<IDayService, DayService>();
     }

@@ -1,4 +1,5 @@
 using Balenthiran.Habits.Abstractions.Enums;
+using Balenthiran.Habits.Abstractions.Services;
 using Balenthiran.Habits.Services;
 
 namespace Balenthiran.Habits.Tests;
@@ -13,6 +14,9 @@ public class HabitCalculatorTests
     // A fixed "today" so the multi-day fixtures read as a calendar.
     private static readonly DateOnly Today = new(2026, 1, 15);
     private static DateOnly Ago(int days) => Today.AddDays(-days);
+
+    // The calculator is a plain DI service — construct one directly for the unit tests.
+    private static readonly IHabitCalculator Calc = new HabitCalculator();
 
     // ---- IsComplete (A3) --------------------------------------------------
 
@@ -31,7 +35,7 @@ public class HabitCalculatorTests
     [InlineData(HabitType.Numeric, null, 0.0, true)]
     [InlineData(HabitType.Numeric, null, null, false)]
     public void IsComplete_matches_the_rule(HabitType type, double? target, double? value, bool expected)
-        => Assert.Equal(expected, HabitCalculator.IsComplete(type, target, value));
+        => Assert.Equal(expected, Calc.IsComplete(type, target, value));
 
     // ---- CurrentStreak (A4) ----------------------------------------------
 
@@ -39,7 +43,7 @@ public class HabitCalculatorTests
     public void CurrentStreak_counts_today_and_back_when_today_is_complete()
     {
         var complete = new HashSet<DateOnly> { Today, Ago(1), Ago(2) };
-        Assert.Equal(3, HabitCalculator.CurrentStreak(complete, Today));
+        Assert.Equal(3, Calc.CurrentStreak(complete, Today));
     }
 
     [Fact]
@@ -47,14 +51,14 @@ public class HabitCalculatorTests
     {
         // Today not logged yet, but the three days before it are complete — streak holds.
         var complete = new HashSet<DateOnly> { Ago(1), Ago(2), Ago(3) };
-        Assert.Equal(3, HabitCalculator.CurrentStreak(complete, Today));
+        Assert.Equal(3, Calc.CurrentStreak(complete, Today));
     }
 
     [Fact]
     public void CurrentStreak_is_zero_when_today_and_yesterday_both_missed()
     {
         var complete = new HashSet<DateOnly> { Ago(2), Ago(3) };
-        Assert.Equal(0, HabitCalculator.CurrentStreak(complete, Today));
+        Assert.Equal(0, Calc.CurrentStreak(complete, Today));
     }
 
     [Fact]
@@ -62,12 +66,12 @@ public class HabitCalculatorTests
     {
         // Today + yesterday complete, then a gap at Ago(2); Ago(3)/Ago(4) don't count.
         var complete = new HashSet<DateOnly> { Today, Ago(1), Ago(3), Ago(4) };
-        Assert.Equal(2, HabitCalculator.CurrentStreak(complete, Today));
+        Assert.Equal(2, Calc.CurrentStreak(complete, Today));
     }
 
     [Fact]
     public void CurrentStreak_is_zero_with_no_history()
-        => Assert.Equal(0, HabitCalculator.CurrentStreak(new HashSet<DateOnly>(), Today));
+        => Assert.Equal(0, Calc.CurrentStreak(new HashSet<DateOnly>(), Today));
 
     // ---- LongestStreak (A4) ----------------------------------------------
 
@@ -81,24 +85,24 @@ public class HabitCalculatorTests
             Ago(6), Ago(5), Ago(4), Ago(3),
             Ago(1),
         };
-        Assert.Equal(4, HabitCalculator.LongestStreak(complete));
+        Assert.Equal(4, Calc.LongestStreak(complete));
     }
 
     [Fact]
     public void LongestStreak_handles_a_single_unbroken_run()
     {
         var complete = new List<DateOnly> { Ago(2), Ago(1), Today };
-        Assert.Equal(3, HabitCalculator.LongestStreak(complete));
+        Assert.Equal(3, Calc.LongestStreak(complete));
     }
 
     [Fact]
     public void LongestStreak_ignores_duplicate_and_unordered_dates()
     {
         var complete = new List<DateOnly> { Today, Ago(2), Ago(1), Ago(1), Today };
-        Assert.Equal(3, HabitCalculator.LongestStreak(complete));
+        Assert.Equal(3, Calc.LongestStreak(complete));
     }
 
     [Fact]
     public void LongestStreak_is_zero_with_no_history()
-        => Assert.Equal(0, HabitCalculator.LongestStreak([]));
+        => Assert.Equal(0, Calc.LongestStreak([]));
 }

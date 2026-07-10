@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Balenthiran.Habits.Services\Balenthiran.Habits.Services.csproj" />
+    <ProjectReference Include="..\Balenthiran.Habits.DataModels\Balenthiran.Habits.DataModels.csproj" />
     <ProjectReference Include="..\Balenthiran.Habits.Abstractions\Balenthiran.Habits.Abstractions.csproj" />
     <ProjectReference Include="..\Balenthiran.Habits.Database\Balenthiran.Habits.Database.csproj" />
     <ProjectReference Include="..\Balenthiran.Habits.EntityModels\Balenthiran.Habits.EntityModels.csproj" />

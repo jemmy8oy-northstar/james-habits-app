@@ -1,15 +1,16 @@
+using Balenthiran.Habits.Abstractions.DataModels;
 using Balenthiran.Habits.Abstractions.Services;
-using Balenthiran.Habits.Abstractions.Views;
 using Balenthiran.Habits.Database;
+using Balenthiran.Habits.DataModels.Models;
 using Balenthiran.Habits.EntityModels;
 using Microsoft.EntityFrameworkCore;
 
 namespace Balenthiran.Habits.Services;
 
 /// <summary>Manages the habit list: create, edit, reorder, archive and first-run seeding.</summary>
-public class HabitService(AppDbContext db) : IHabitService
+public class HabitService(AppDbContext db, IStarterHabitsProvider starterHabits) : IHabitService
 {
-    public async Task<IReadOnlyList<HabitView>> GetAllAsync(bool includeArchived = false)
+    public async Task<IReadOnlyList<IHabitView>> GetAllAsync(bool includeArchived = false)
     {
         var query = db.Habits.AsQueryable();
         if (!includeArchived)
@@ -23,13 +24,13 @@ public class HabitService(AppDbContext db) : IHabitService
         return habits.Select(ToView).ToList();
     }
 
-    public async Task<HabitView?> GetAsync(int id)
+    public async Task<IHabitView?> GetAsync(int id)
     {
         var habit = await db.Habits.FindAsync(id);
         return habit is null ? null : ToView(habit);
     }
 
-    public async Task<HabitView> CreateAsync(HabitInput input)
+    public async Task<IHabitView> CreateAsync(IHabitInput input)
     {
         // Append to the end of the current order.
         var maxOrder = await db.Habits.AnyAsync()
@@ -49,7 +50,7 @@ public class HabitService(AppDbContext db) : IHabitService
         return ToView(habit);
     }
 
-    public async Task<HabitView?> UpdateAsync(int id, HabitInput input)
+    public async Task<IHabitView?> UpdateAsync(int id, IHabitInput input)
     {
         var habit = await db.Habits.FindAsync(id);
         if (habit is null)
@@ -88,17 +89,28 @@ public class HabitService(AppDbContext db) : IHabitService
         return true;
     }
 
-    public async Task<IReadOnlyList<HabitView>> EnsureSeededAsync()
+    public async Task<IReadOnlyList<IHabitView>> EnsureSeededAsync()
     {
         if (await db.Habits.AnyAsync())
             return [];
 
-        var seeded = StarterHabits.Build();
+        // Turn the starter inputs into stored habits, ordered by their listed position.
+        var seeded = starterHabits.GetStarterHabits()
+            .Select((input, order) => new HabitEntity
+            {
+                Name = input.Name,
+                Type = input.Type,
+                Unit = input.Unit,
+                Target = input.Target,
+                SortOrder = order,
+            })
+            .ToList();
+
         db.Habits.AddRange(seeded);
         await db.SaveChangesAsync();
         return seeded.Select(ToView).ToList();
     }
 
-    private static HabitView ToView(HabitEntity h) =>
-        new(h.Id, h.Name, h.Type, h.Unit, h.Target, h.SortOrder, h.IsArchived);
+    private static IHabitView ToView(HabitEntity h) =>
+        new HabitView(h.Id, h.Name, h.Type, h.Unit, h.Target, h.SortOrder, h.IsArchived);
 }

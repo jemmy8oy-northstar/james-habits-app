@@ -1,6 +1,7 @@
+using Balenthiran.Habits.Abstractions.DataModels;
 using Balenthiran.Habits.Abstractions.Services;
-using Balenthiran.Habits.Abstractions.Views;
 using Balenthiran.Habits.Database;
+using Balenthiran.Habits.DataModels.Models;
 using Balenthiran.Habits.EntityModels;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +10,11 @@ namespace Balenthiran.Habits.Services;
 /// <summary>
 /// The daily loop: assemble a date's view (habits + entries + streaks), upsert a
 /// single entry, and build a habit's history grid. Completion/streak maths is
-/// delegated to <see cref="HabitCalculator"/>.
+/// delegated to the injected <see cref="IHabitCalculator"/>.
 /// </summary>
-public class DayService(AppDbContext db) : IDayService
+public class DayService(AppDbContext db, IHabitCalculator calculator) : IDayService
 {
-    public async Task<DayView> GetDayAsync(DateOnly date)
+    public async Task<IDayView> GetDayAsync(DateOnly date)
     {
         var habits = await db.Habits
             .Where(h => !h.IsArchived)
@@ -36,7 +37,7 @@ public class DayService(AppDbContext db) : IDayService
         return new DayView(date, views);
     }
 
-    public async Task<HabitDayView> UpsertEntryAsync(int habitId, DateOnly date, double value)
+    public async Task<IHabitDayView> UpsertEntryAsync(int habitId, DateOnly date, double value)
     {
         var habit = await db.Habits.FindAsync(habitId)
             ?? throw new KeyNotFoundException($"Habit {habitId} does not exist.");
@@ -63,7 +64,7 @@ public class DayService(AppDbContext db) : IDayService
         return BuildDayView(habit, entries, date);
     }
 
-    public async Task<HabitHistory?> GetHistoryAsync(int habitId, DateOnly today, int days = 30)
+    public async Task<IHabitHistory?> GetHistoryAsync(int habitId, DateOnly today, int days = 30)
     {
         var habit = await db.Habits.FindAsync(habitId);
         if (habit is null)
@@ -76,7 +77,7 @@ public class DayService(AppDbContext db) : IDayService
         var valueByDate = entries.ToDictionary(e => e.Date, e => e.Value);
         var completeDates = CompleteDates(habit, entries);
 
-        var grid = new List<DayCompletion>(days);
+        var grid = new List<IDayCompletion>(days);
         for (var i = days - 1; i >= 0; i--)
         {
             var d = today.AddDays(-i);
@@ -89,12 +90,12 @@ public class DayService(AppDbContext db) : IDayService
         return new HabitHistory(
             habit.Id,
             habit.Name,
-            HabitCalculator.CurrentStreak(completeDates, today),
-            HabitCalculator.LongestStreak(completeDates),
+            calculator.CurrentStreak(completeDates, today),
+            calculator.LongestStreak(completeDates),
             grid);
     }
 
-    private static HabitDayView BuildDayView(HabitEntity habit, IEnumerable<HabitEntryEntity> entries, DateOnly date)
+    private HabitDayView BuildDayView(HabitEntity habit, IEnumerable<HabitEntryEntity> entries, DateOnly date)
     {
         var list = entries as ICollection<HabitEntryEntity> ?? entries.ToList();
         var completeDates = CompleteDates(habit, list);
@@ -108,13 +109,13 @@ public class DayService(AppDbContext db) : IDayService
             habit.Target,
             habit.SortOrder,
             todays?.Value,
-            todays is not null && HabitCalculator.IsComplete(habit.Type, habit.Target, todays.Value),
-            HabitCalculator.CurrentStreak(completeDates, date));
+            todays is not null && calculator.IsComplete(habit.Type, habit.Target, todays.Value),
+            calculator.CurrentStreak(completeDates, date));
     }
 
-    private static HashSet<DateOnly> CompleteDates(HabitEntity habit, IEnumerable<HabitEntryEntity> entries) =>
+    private HashSet<DateOnly> CompleteDates(HabitEntity habit, IEnumerable<HabitEntryEntity> entries) =>
         entries
-            .Where(e => HabitCalculator.IsComplete(habit.Type, habit.Target, e.Value))
+            .Where(e => calculator.IsComplete(habit.Type, habit.Target, e.Value))
             .Select(e => e.Date)
             .ToHashSet();
 }

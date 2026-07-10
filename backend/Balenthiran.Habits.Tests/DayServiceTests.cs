@@ -46,7 +46,7 @@ public class DayServiceTests
         AddHabit(db, "Second", HabitType.Boolean, order: 1);
         AddHabit(db, "First", HabitType.Boolean, order: 0);
         AddHabit(db, "Archived", HabitType.Boolean, order: 2, archived: true);
-        var svc = new DayService(db);
+        var svc = new DayService(db, new HabitCalculator());
 
         var day = await svc.GetDayAsync(Today);
 
@@ -60,7 +60,7 @@ public class DayServiceTests
         using var db = NewDb();
         var sleep = AddHabit(db, "Sleep", HabitType.Numeric, target: 8);
         AddEntries(db, sleep.Id, (Today, 8.5));
-        var svc = new DayService(db);
+        var svc = new DayService(db, new HabitCalculator());
 
         var view = (await svc.GetDayAsync(Today)).Habits.Single();
 
@@ -75,7 +75,7 @@ public class DayServiceTests
         var read = AddHabit(db, "Read", HabitType.Boolean);
         // Complete the three days before today; today unlogged (grace day).
         AddEntries(db, read.Id, (Ago(1), 1), (Ago(2), 1), (Ago(3), 1));
-        var svc = new DayService(db);
+        var svc = new DayService(db, new HabitCalculator());
 
         var view = (await svc.GetDayAsync(Today)).Habits.Single();
 
@@ -89,7 +89,7 @@ public class DayServiceTests
     {
         using var db = NewDb();
         var water = AddHabit(db, "Water", HabitType.Numeric, target: 8);
-        var svc = new DayService(db);
+        var svc = new DayService(db, new HabitCalculator());
 
         var first = await svc.UpsertEntryAsync(water.Id, Today, 5);
         Assert.Equal(5, first.Value);
@@ -107,7 +107,7 @@ public class DayServiceTests
     public async Task UpsertEntry_throws_for_an_unknown_habit()
     {
         using var db = NewDb();
-        var svc = new DayService(db);
+        var svc = new DayService(db, new HabitCalculator());
         await Assert.ThrowsAsync<KeyNotFoundException>(() => svc.UpsertEntryAsync(999, Today, 1));
     }
 
@@ -118,7 +118,7 @@ public class DayServiceTests
         var run = AddHabit(db, "Run", HabitType.Boolean);
         // A 3-day run ending today, plus an earlier isolated complete day.
         AddEntries(db, run.Id, (Today, 1), (Ago(1), 1), (Ago(2), 1), (Ago(5), 1), (Ago(6), 0));
-        var svc = new DayService(db);
+        var svc = new DayService(db, new HabitCalculator());
 
         var history = await svc.GetHistoryAsync(run.Id, Today, days: 7);
 
@@ -138,7 +138,7 @@ public class DayServiceTests
     public async Task GetHistory_returns_null_for_an_unknown_habit()
     {
         using var db = NewDb();
-        var svc = new DayService(db);
+        var svc = new DayService(db, new HabitCalculator());
         Assert.Null(await svc.GetHistoryAsync(999, Today));
     }
 }
