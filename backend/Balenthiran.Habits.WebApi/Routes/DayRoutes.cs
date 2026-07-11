@@ -17,7 +17,9 @@ public static class DayRoutes
     public static RouteGroupBuilder MapDayRoutes(this RouteGroupBuilder parentGroup)
     {
         parentGroup.MapGet("/days/{date}", GetDay).WithName("GetDay");
-        parentGroup.MapPut("/entries", UpsertEntry).WithName("UpsertEntry");
+        // A missing habit throws NotFoundException in the service; the global handler (issue #7)
+        // renders the 404 ProblemDetails, so this route only expresses its success shape.
+        parentGroup.MapPut("/entries", UpsertEntry).WithName("UpsertEntry").ProducesProblem(StatusCodes.Status404NotFound);
 
         return parentGroup;
     }
@@ -27,17 +29,10 @@ public static class DayRoutes
         TypedResults.Ok(mapper.Map<DayView>(await days.GetDayAsync(date)));
 
     // Idempotent upsert of one habit's value on one date — the core logging action.
-    private static async Task<Results<Ok<HabitDayView>, NotFound>> UpsertEntry(
+    private static async Task<Ok<HabitDayView>> UpsertEntry(
         EntryUpsertRequest request, IDayService days, IMapper mapper)
     {
-        try
-        {
-            var view = await days.UpsertEntryAsync(request.HabitId, request.Date, request.Value);
-            return TypedResults.Ok(mapper.Map<HabitDayView>(view));
-        }
-        catch (KeyNotFoundException)
-        {
-            return TypedResults.NotFound();
-        }
+        var view = await days.UpsertEntryAsync(request.HabitId, request.Date, request.Value);
+        return TypedResults.Ok(mapper.Map<HabitDayView>(view));
     }
 }

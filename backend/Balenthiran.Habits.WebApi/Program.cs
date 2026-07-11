@@ -1,5 +1,6 @@
 using Scalar.AspNetCore;
 using Balenthiran.Habits.WebApi;
+using Balenthiran.Habits.WebApi.ExceptionHandling;
 using Balenthiran.Habits.WebApi.Routes;
 using Balenthiran.Habits.Abstractions.Services;
 using Balenthiran.Habits.Database;
@@ -10,7 +11,15 @@ builder.Services.AddBackendServices(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
+// Global exception handling (issue #7): AppExceptionHandler maps thrown AppExceptions to
+// RFC 7807 ProblemDetails; AddProblemDetails supplies the writer + standard fields.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<AppExceptionHandler>();
+
 var app = builder.Build();
+
+// Must sit at the top of the pipeline so it catches exceptions from everything below it.
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

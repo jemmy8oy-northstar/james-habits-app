@@ -1,4 +1,5 @@
 using Balenthiran.Habits.Abstractions.DataModels;
+using Balenthiran.Habits.Abstractions.Exceptions;
 using Balenthiran.Habits.Abstractions.Services;
 using Balenthiran.Habits.Database;
 using Balenthiran.Habits.DataModels.Models;
@@ -24,10 +25,11 @@ public class HabitService(AppDbContext db, IStarterHabitsProvider starterHabits)
         return habits.Select(ToView).ToList();
     }
 
-    public async Task<IHabitView?> GetAsync(int id)
+    public async Task<IHabitView> GetAsync(int id)
     {
-        var habit = await db.Habits.FindAsync(id);
-        return habit is null ? null : ToView(habit);
+        var habit = await db.Habits.FindAsync(id)
+            ?? throw new NotFoundException($"Habit {id} does not exist.");
+        return ToView(habit);
     }
 
     public async Task<IHabitView> CreateAsync(IHabitInput input)
@@ -50,11 +52,10 @@ public class HabitService(AppDbContext db, IStarterHabitsProvider starterHabits)
         return ToView(habit);
     }
 
-    public async Task<IHabitView?> UpdateAsync(int id, IHabitInput input)
+    public async Task<IHabitView> UpdateAsync(int id, IHabitInput input)
     {
-        var habit = await db.Habits.FindAsync(id);
-        if (habit is null)
-            return null;
+        var habit = await db.Habits.FindAsync(id)
+            ?? throw new NotFoundException($"Habit {id} does not exist.");
 
         habit.Name = input.Name;
         habit.Type = input.Type;
@@ -78,15 +79,13 @@ public class HabitService(AppDbContext db, IStarterHabitsProvider starterHabits)
         await db.SaveChangesAsync();
     }
 
-    public async Task<bool> ArchiveAsync(int id)
+    public async Task ArchiveAsync(int id)
     {
-        var habit = await db.Habits.FindAsync(id);
-        if (habit is null)
-            return false;
+        var habit = await db.Habits.FindAsync(id)
+            ?? throw new NotFoundException($"Habit {id} does not exist.");
 
         habit.IsArchived = true;
         await db.SaveChangesAsync();
-        return true;
     }
 
     public async Task<IReadOnlyList<IHabitView>> EnsureSeededAsync()

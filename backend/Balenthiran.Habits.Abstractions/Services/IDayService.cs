@@ -11,9 +11,15 @@ public interface IDayService
     /// <summary>Every active habit for <paramref name="date"/> with its entry value, completion and streak.</summary>
     Task<IDayView> GetDayAsync(DateOnly date);
 
-    /// <summary>Idempotent upsert of one habit's value on one date. Throws if the habit does not exist.</summary>
+    /// <summary>
+    /// Idempotent upsert of one habit's value on one date. Throws
+    /// <see cref="Exceptions.NotFoundException"/> if the habit does not exist.
+    /// </summary>
     Task<IHabitDayView> UpsertEntryAsync(int habitId, DateOnly date, double value);
 
-    /// <summary>Last <paramref name="days"/> days (ending <paramref name="today"/>) plus current/longest streak.</summary>
-    Task<IHabitHistory?> GetHistoryAsync(int habitId, DateOnly today, int days = 30);
+    /// <summary>
+    /// Last <paramref name="days"/> days (ending <paramref name="today"/>) plus current/longest streak.
+    /// Throws <see cref="Exceptions.NotFoundException"/> if the habit does not exist.
+    /// </summary>
+    Task<IHabitHistory> GetHistoryAsync(int habitId, DateOnly today, int days = 30);
 }
