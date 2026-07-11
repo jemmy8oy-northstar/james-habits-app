@@ -18,14 +18,17 @@ public static class HabitRoutes
         var group = parentGroup.MapGroup("/habits");
 
         group.MapGet("", GetHabits).WithName("GetHabits");
-        group.MapGet("/{id:int}", GetHabit).WithName("GetHabit");
+        // Missing-resource routes throw NotFoundException in the service; the global handler
+        // (issue #7) turns that into a 404 ProblemDetails. ProducesProblem keeps the OpenAPI
+        // document honest so the generated client knows a 404 is possible.
+        group.MapGet("/{id:int}", GetHabit).WithName("GetHabit").ProducesProblem(StatusCodes.Status404NotFound);
         group.MapPost("", CreateHabit).WithName("CreateHabit");
-        group.MapPut("/{id:int}", UpdateHabit).WithName("UpdateHabit");
+        group.MapPut("/{id:int}", UpdateHabit).WithName("UpdateHabit").ProducesProblem(StatusCodes.Status404NotFound);
         // Reorder before "/{id}" DELETE so "/reorder" is never captured as an id.
         group.MapPut("/reorder", ReorderHabits).WithName("ReorderHabits");
         // Archive is a soft delete: the habit's history survives (design MVP 1).
-        group.MapDelete("/{id:int}", ArchiveHabit).WithName("ArchiveHabit");
-        group.MapGet("/{id:int}/history", GetHabitHistory).WithName("GetHabitHistory");
+        group.MapDelete("/{id:int}", ArchiveHabit).WithName("ArchiveHabit").ProducesProblem(StatusCodes.Status404NotFound);
+        group.MapGet("/{id:int}/history", GetHabitHistory).WithName("GetHabitHistory").ProducesProblem(StatusCodes.Status404NotFound);
 
         return parentGroup;
     }
@@ -34,11 +37,8 @@ public static class HabitRoutes
         IHabitService habits, IMapper mapper, bool includeArchived = false) =>
         TypedResults.Ok(mapper.Map<IReadOnlyList<HabitView>>(await habits.GetAllAsync(includeArchived)));
 
-    private static async Task<Results<Ok<HabitView>, NotFound>> GetHabit(
-        int id, IHabitService habits, IMapper mapper) =>
-        await habits.GetAsync(id) is { } habit
-            ? TypedResults.Ok(mapper.Map<HabitView>(habit))
-            : TypedResults.NotFound();
+    private static async Task<Ok<HabitView>> GetHabit(int id, IHabitService habits, IMapper mapper) =>
+        TypedResults.Ok(mapper.Map<HabitView>(await habits.GetAsync(id)));
 
     private static async Task<Created<HabitView>> CreateHabit(
         HabitInput input, IHabitService habits, IMapper mapper)
@@ -47,11 +47,9 @@ public static class HabitRoutes
         return TypedResults.Created($"/api/habits/{created.Id}", mapper.Map<HabitView>(created));
     }
 
-    private static async Task<Results<Ok<HabitView>, NotFound>> UpdateHabit(
+    private static async Task<Ok<HabitView>> UpdateHabit(
         int id, HabitInput input, IHabitService habits, IMapper mapper) =>
-        await habits.UpdateAsync(id, input) is { } updated
-            ? TypedResults.Ok(mapper.Map<HabitView>(updated))
-            : TypedResults.NotFound();
+        TypedResults.Ok(mapper.Map<HabitView>(await habits.UpdateAsync(id, input)));
 
     private static async Task<NoContent> ReorderHabits(
         IReadOnlyList<int> orderedHabitIds, IHabitService habits)
@@ -60,17 +58,17 @@ public static class HabitRoutes
         return TypedResults.NoContent();
     }
 
-    private static async Task<Results<NoContent, NotFound>> ArchiveHabit(int id, IHabitService habits) =>
-        await habits.ArchiveAsync(id)
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+    private static async Task<NoContent> ArchiveHabit(int id, IHabitService habits)
+    {
+        await habits.ArchiveAsync(id);
+        return TypedResults.NoContent();
+    }
 
-    private static async Task<Results<Ok<HabitHistory>, NotFound>> GetHabitHistory(
+    private static async Task<Ok<HabitHistory>> GetHabitHistory(
         int id, IDayService days, IMapper mapper, int historyDays = 30, DateOnly? today = null)
     {
         var anchor = today ?? DateOnly.FromDateTime(DateTime.Today);
-        return await days.GetHistoryAsync(id, anchor, historyDays) is { } history
-            ? TypedResults.Ok(mapper.Map<HabitHistory>(history))
-            : TypedResults.NotFound();
+        var history = await days.GetHistoryAsync(id, anchor, historyDays);
+        return TypedResults.Ok(mapper.Map<HabitHistory>(history));
     }
 }

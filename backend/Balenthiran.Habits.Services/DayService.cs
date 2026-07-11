@@ -1,4 +1,5 @@
 using Balenthiran.Habits.Abstractions.DataModels;
+using Balenthiran.Habits.Abstractions.Exceptions;
 using Balenthiran.Habits.Abstractions.Services;
 using Balenthiran.Habits.Database;
 using Balenthiran.Habits.DataModels.Models;
@@ -40,7 +41,7 @@ public class DayService(AppDbContext db, IHabitCalculator calculator) : IDayServ
     public async Task<IHabitDayView> UpsertEntryAsync(int habitId, DateOnly date, double value)
     {
         var habit = await db.Habits.FindAsync(habitId)
-            ?? throw new KeyNotFoundException($"Habit {habitId} does not exist.");
+            ?? throw new NotFoundException($"Habit {habitId} does not exist.");
 
         var entry = await db.HabitEntries
             .FirstOrDefaultAsync(e => e.HabitId == habitId && e.Date == date);
@@ -64,11 +65,10 @@ public class DayService(AppDbContext db, IHabitCalculator calculator) : IDayServ
         return BuildDayView(habit, entries, date);
     }
 
-    public async Task<IHabitHistory?> GetHistoryAsync(int habitId, DateOnly today, int days = 30)
+    public async Task<IHabitHistory> GetHistoryAsync(int habitId, DateOnly today, int days = 30)
     {
-        var habit = await db.Habits.FindAsync(habitId);
-        if (habit is null)
-            return null;
+        var habit = await db.Habits.FindAsync(habitId)
+            ?? throw new NotFoundException($"Habit {habitId} does not exist.");
 
         var entries = await db.HabitEntries
             .Where(e => e.HabitId == habitId)

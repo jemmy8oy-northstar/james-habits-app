@@ -1,4 +1,5 @@
 using Balenthiran.Habits.Abstractions.Enums;
+using Balenthiran.Habits.Abstractions.Exceptions;
 using Balenthiran.Habits.Database;
 using Balenthiran.Habits.EntityModels;
 using Balenthiran.Habits.Services;
@@ -108,7 +109,7 @@ public class DayServiceTests
     {
         using var db = NewDb();
         var svc = new DayService(db, new HabitCalculator());
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => svc.UpsertEntryAsync(999, Today, 1));
+        await Assert.ThrowsAsync<NotFoundException>(() => svc.UpsertEntryAsync(999, Today, 1));
     }
 
     [Fact]
@@ -135,10 +136,10 @@ public class DayServiceTests
     }
 
     [Fact]
-    public async Task GetHistory_returns_null_for_an_unknown_habit()
+    public async Task GetHistory_throws_for_an_unknown_habit()
     {
         using var db = NewDb();
         var svc = new DayService(db, new HabitCalculator());
-        Assert.Null(await svc.GetHistoryAsync(999, Today));
+        await Assert.ThrowsAsync<NotFoundException>(() => svc.GetHistoryAsync(999, Today));
     }
 }

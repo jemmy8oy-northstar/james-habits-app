@@ -1,4 +1,5 @@
 using Balenthiran.Habits.Abstractions.Enums;
+using Balenthiran.Habits.Abstractions.Exceptions;
 using Balenthiran.Habits.Database;
 using Balenthiran.Habits.DataModels.Models;
 using Balenthiran.Habits.Services;
@@ -53,7 +54,7 @@ public class HabitServiceTests
     }
 
     [Fact]
-    public async Task Update_changes_fields_and_returns_null_when_missing()
+    public async Task Update_changes_fields_and_throws_when_missing()
     {
         using var db = NewDb();
         var svc = new HabitService(db, new StarterHabitsProvider());
@@ -65,7 +66,8 @@ public class HabitServiceTests
         Assert.Equal("Water", updated!.Name);
         Assert.Equal("glasses", updated.Unit);
         Assert.Equal(8, updated.Target);
-        Assert.Null(await svc.UpdateAsync(999, new HabitInput("Nope", HabitType.Boolean)));
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => svc.UpdateAsync(999, new HabitInput("Nope", HabitType.Boolean)));
     }
 
     [Fact]
@@ -83,11 +85,19 @@ public class HabitServiceTests
     }
 
     [Fact]
-    public async Task Archive_returns_false_for_an_unknown_habit()
+    public async Task Archive_throws_for_an_unknown_habit()
     {
         using var db = NewDb();
         var svc = new HabitService(db, new StarterHabitsProvider());
-        Assert.False(await svc.ArchiveAsync(999));
+        await Assert.ThrowsAsync<NotFoundException>(() => svc.ArchiveAsync(999));
+    }
+
+    [Fact]
+    public async Task Get_throws_for_an_unknown_habit()
+    {
+        using var db = NewDb();
+        var svc = new HabitService(db, new StarterHabitsProvider());
+        await Assert.ThrowsAsync<NotFoundException>(() => svc.GetAsync(999));
     }
 
     [Fact]
