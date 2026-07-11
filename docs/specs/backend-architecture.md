@@ -79,7 +79,12 @@ AutoMapper is configured in `ServiceRegistration.cs` to scan all assemblies for 
 
 ### 5. Route Grouping (Minimal APIs)
 
-Routes are organized into `Routes/` and registered via extension methods:
+Routes are organized into `Routes/` and registered via extension methods. Handlers
+are **named static methods** (not inline lambdas) with **concrete `TypedResults`
+return types** — never a bare `Results.Ok(...)`/`IResult`. Only a concrete return type
+(`Ok<T>`, `Results<Ok<T>, NotFound>`, `Created<T>`, `NoContent`) lets OpenAPI describe
+the response body, which is what the frontend codegen turns into typed hooks. Service
+view interfaces are mapped to their concrete response records via `IMapper`.
 
 ```csharp
 // Program.cs
@@ -88,14 +93,22 @@ app.MapGroup("/api")
     .MapInterestRoutes()
     .WithOpenApi();
 
-// Routes/StatusRoutes.cs
-public static class StatusRoutes
+// Routes/InterestRoutes.cs
+public static class InterestRoutes
 {
-    public static RouteGroupBuilder MapStatusRoutes(this RouteGroupBuilder group)
+    public static RouteGroupBuilder MapInterestRoutes(this RouteGroupBuilder group)
     {
-        group.MapGet("/status", async (IStatusService svc) => await svc.GetStatusAsync());
+        group.MapGet("/interest/{id:int}", GetInterest).WithName("GetInterest");
         return group;
     }
+
+    // Named delegate + concrete return type → OpenAPI knows the 200 body is `Interest`
+    // and the 404 has no body. Inline `async (id, svc) => Results.Ok(...)` would erase both.
+    private static async Task<Results<Ok<Interest>, NotFound>> GetInterest(
+        int id, IInterestService svc, IMapper mapper) =>
+        await svc.GetAsync(id) is { } interest      // service returns the interface I*
+            ? TypedResults.Ok(mapper.Map<Interest>(interest))  // mapped to the concrete record
+            : TypedResults.NotFound();
 }
 ```
 
@@ -104,6 +117,11 @@ This keeps `Program.cs` lean regardless of how many endpoints are added.
 ### 6. OpenAPI as the Source of Truth
 
 The backend generates an OpenAPI schema at `/openapi/v1.json`. The frontend RTK Query client is generated directly from this schema — no manual HTTP calls, no drifting types. See `docs/specs/openapi-codegen.md`.
+
+For the schema to carry response types, every handler must return a **concrete
+`TypedResults` type** (see §5). A handler that returns `IResult` (the type of any
+`Results.Ok(...)` lambda) contributes an endpoint with *no* response schema, so the
+generated hook types come out as `unknown`. Typed handlers are what make the schema — and therefore the frontend types — trustworthy.
 
 ### 7. Auto-Run Migrations
 

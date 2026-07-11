@@ -77,7 +77,7 @@ public class DayService(AppDbContext db, IHabitCalculator calculator) : IDayServ
         var valueByDate = entries.ToDictionary(e => e.Date, e => e.Value);
         var completeDates = CompleteDates(habit, entries);
 
-        var grid = new List<IDayCompletion>(days);
+        var grid = new List<DayCompletion>(days);
         for (var i = days - 1; i >= 0; i--)
         {
             var d = today.AddDays(-i);

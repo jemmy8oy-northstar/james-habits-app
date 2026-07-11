@@ -24,6 +24,35 @@ const config = {
 };
 ```
 
+## Typed Responses (required)
+
+The codegen is only as good as the schema, and the schema is only as good as the
+handler return types. **Every route handler must be a named static method that returns
+a concrete `TypedResults` type** — never an inline lambda returning `Results.Ok(...)`.
+
+```csharp
+// ✅ OpenAPI knows the 200 body is HabitView and the 404 has no body
+private static async Task<Results<Ok<HabitView>, NotFound>> GetHabit(
+    int id, IHabitService habits, IMapper mapper) =>
+    await habits.GetAsync(id) is { } habit
+        ? TypedResults.Ok(mapper.Map<HabitView>(habit))
+        : TypedResults.NotFound();
+
+// ❌ Return type is IResult — OpenAPI records no response schema, hook type is `unknown`
+group.MapGet("/{id:int}", async (int id, IHabitService habits) =>
+    await habits.GetAsync(id) is { } h ? Results.Ok(h) : Results.NotFound());
+```
+
+Why it matters:
+- `TypedResults.Ok(value)` returns `Ok<T>`; the union `Results<Ok<T>, NotFound>` also
+  advertises the non-success shapes. OpenAPI reads these off the signature.
+- The response type `T` must be a **concrete record** (`HabitView`), not a service view
+  **interface** (`IHabitView`). Services return interfaces; the handler maps to the
+  concrete record via `IMapper` (see `WebApi/Mapper.cs`) so the wire contract — and the
+  generated TypeScript type — is a real, named shape.
+- A shape the service does not return directly (e.g. the status payload) gets a concrete
+  `*Response` record the route assembles.
+
 ## Running the Codegen
 
 1. **Start the backend** (the schema endpoint must be reachable):

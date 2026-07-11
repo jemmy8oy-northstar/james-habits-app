@@ -8,4 +8,9 @@ public record HabitHistory(
     string Name,
     int CurrentStreak,
     int LongestStreak,
-    IReadOnlyList<IDayCompletion> Days) : IHabitHistory;
+    IReadOnlyList<DayCompletion> Days) : IHabitHistory
+{
+    // Concrete list on the record for a concrete OpenAPI item schema; the explicit
+    // member keeps the interface's collection-of-interface contract intact.
+    IReadOnlyList<IDayCompletion> IHabitHistory.Days => Days;
+}
