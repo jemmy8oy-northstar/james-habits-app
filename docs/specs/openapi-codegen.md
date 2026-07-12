@@ -4,10 +4,16 @@ The frontend API client (`src/api/generatedApi.ts`) is generated automatically f
 
 ## How It Works
 
+The backend emits its OpenAPI document **at build time** — no running server required —
+via `Microsoft.Extensions.ApiDescription.Server`. A Debug build runs the app in-process
+(it skips DB startup while doing so, see below) and writes the schema to a committed
+`backend/Balenthiran.Habits.WebApi/openapi.json`. The frontend codegen reads that file, so
+`npm run codegen` works offline and in CI.
+
 ```
-.NET Backend
-  └── Scalar/OpenAPI middleware
-        └── GET /openapi/v1.json  (schema)
+.NET Backend  (dotnet build -c Debug)
+  └── Microsoft.Extensions.ApiDescription.Server  (GetDocument.Insider, in-process)
+        └── backend/Balenthiran.Habits.WebApi/openapi.json  (committed schema)
               └── @rtk-query/codegen-openapi
                     └── src/api/generatedApi.ts  (typed RTK Query hooks)
 ```
@@ -16,13 +22,24 @@ The codegen config is in `frontend/openapi-config.cjs`:
 
 ```js
 const config = {
-  schemaFile: 'http://localhost:5257/openapi/v1.json',
+  schemaFile: '../backend/Balenthiran.Habits.WebApi/openapi.json',
   apiFile: './src/api/emptyApi.ts',
   apiImport: 'emptySplitApi',
   outputFile: './src/api/generatedApi.ts',
   hooks: true,
 };
 ```
+
+The live `http://localhost:5257/openapi/v1.json` endpoint still exists (Scalar UI at
+`/scalar/v1`) for exploring the API; codegen just no longer depends on it being up.
+
+### Why the build doesn't touch a database
+
+Build-time generation loads the whole app to enumerate its endpoints, which runs the
+top-level code in `Program.cs`, including the startup migration. That block is guarded so
+it is **skipped when the entry assembly is `GetDocument.Insider`** — otherwise a Debug
+build with a configured connection string would try to migrate a database. Serving the app
+normally (or the integration-test host) runs the migration as usual.
 
 ## Typed Responses (required)
 
@@ -55,11 +72,14 @@ Why it matters:
 
 ## Running the Codegen
 
-1. **Start the backend** (the schema endpoint must be reachable):
+1. **Refresh the schema** with a Debug backend build (regenerates the committed
+   `openapi.json` — no running server needed):
    ```bash
    cd backend
-   dotnet run --project Balenthiran.Habits.WebApi
+   dotnet build Balenthiran.Habits.WebApi -c Debug
    ```
+   You only need this step when you have changed the API. If `openapi.json` is already
+   up to date, skip straight to codegen.
 
 2. **Run codegen** from the `frontend/` directory:
    ```bash
@@ -115,7 +135,7 @@ export const { useGetSomethingQuery } = customApi;
 
 1. Add route in `backend/Balenthiran.Habits.WebApi/Routes/*.cs`
 2. Ensure the route is registered in `Program.cs` within the `.WithOpenApi()` chain
-3. Start/restart the backend
+3. Rebuild the backend in Debug (`dotnet build Balenthiran.Habits.WebApi -c Debug`) to refresh `openapi.json`
 4. Run `npm run codegen` in `frontend/`
 5. Import and use the new hook (`use*Query` or `use*Mutation`) in your component
 
@@ -123,6 +143,7 @@ export const { useGetSomethingQuery } = customApi;
 
 | Issue | Fix |
 |---|---|
-| `ECONNREFUSED` on codegen | Backend isn't running — start it first |
+| Hooks are missing a new endpoint | `openapi.json` is stale — rebuild the backend in Debug, then re-run codegen |
+| `ENOENT` reading `openapi.json` | Do a Debug backend build once to generate it |
 | Hook types show as `unknown` | The endpoint has no typed response — add a typed return model in the backend |
 | Codegen overwrites custom code | Never put custom code in `generatedApi.ts` — use a separate `customApi.ts` |

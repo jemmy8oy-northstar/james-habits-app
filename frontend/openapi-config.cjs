@@ -1,6 +1,11 @@
 /** @type {import('@rtk-query/codegen-openapi').ConfigFile} */
 const config = {
-  schemaFile: 'http://localhost:5257/openapi/v1.json',
+  // Read the OpenAPI contract the backend emits at build time (see
+  // backend/Balenthiran.Habits.WebApi.csproj → OpenApiGenerateDocumentsOnBuild). Using the
+  // committed file rather than a live http://localhost:5257 endpoint means `npm run codegen`
+  // works offline and in CI without a running backend. Regenerate the file with a Debug
+  // backend build after changing the API.
+  schemaFile: '../backend/Balenthiran.Habits.WebApi/openapi.json',
   apiFile: './src/api/emptyApi.ts',
   apiImport: 'emptySplitApi',
   outputFile: './src/api/generatedApi.ts',
