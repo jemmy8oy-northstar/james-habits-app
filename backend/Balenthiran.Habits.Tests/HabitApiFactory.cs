@@ -1,9 +1,10 @@
+using Balenthiran.Habits.Abstractions.Services;
 using Balenthiran.Habits.Database;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Balenthiran.Habits.Tests;
 
@@ -26,5 +27,21 @@ public sealed class HabitApiFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
             services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_dbName)));
+    }
+
+    // The app no longer touches a database on startup (schema + seed run out of band in real
+    // deployments), so the test host provisions its own in-memory store: materialise the schema
+    // and seed the four starter habits once, up front, so every test starts from a ready host.
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        scope.ServiceProvider.GetRequiredService<IHabitService>()
+            .EnsureSeededAsync().GetAwaiter().GetResult();
+
+        return host;
     }
 }
