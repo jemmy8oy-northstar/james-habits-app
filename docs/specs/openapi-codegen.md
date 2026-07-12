@@ -6,7 +6,7 @@ The frontend API client (`src/api/generatedApi.ts`) is generated automatically f
 
 The backend emits its OpenAPI document **at build time** — no running server required —
 via `Microsoft.Extensions.ApiDescription.Server`. A Debug build runs the app in-process
-(it skips DB startup while doing so, see below) and writes the schema to a committed
+(startup does no database work, see below) and writes the schema to a committed
 `backend/Balenthiran.Habits.WebApi/openapi.json`. The frontend codegen reads that file, so
 `npm run codegen` works offline and in CI.
 
@@ -36,10 +36,21 @@ The live `http://localhost:5257/openapi/v1.json` endpoint still exists (Scalar U
 ### Why the build doesn't touch a database
 
 Build-time generation loads the whole app to enumerate its endpoints, which runs the
-top-level code in `Program.cs`, including the startup migration. That block is guarded so
-it is **skipped when the entry assembly is `GetDocument.Insider`** — otherwise a Debug
-build with a configured connection string would try to migrate a database. Serving the app
-normally (or the integration-test host) runs the migration as usual.
+top-level code in `Program.cs`. That code does **no database work at startup** — booting
+the API neither migrates nor seeds. So the generator (and a plain `dotnet run`) starts with
+no live database even when a connection string is configured.
+
+Schema migration and starter-habit seeding run **out of band**, not on startup:
+
+```
+dotnet ef database update --project backend/Balenthiran.Habits.Database \
+  --startup-project backend/Balenthiran.Habits.WebApi
+```
+
+This keeps the backend runnable without a database while we don't yet have a real
+persistence dependency, and removes the need for any "am I the generator?" guard. Integration
+tests provision and seed their own in-memory store in `HabitApiFactory`, so they never depend
+on a live database either.
 
 ## Typed Responses (required)
 

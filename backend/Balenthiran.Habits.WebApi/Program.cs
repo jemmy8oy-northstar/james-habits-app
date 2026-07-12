@@ -2,9 +2,6 @@ using Scalar.AspNetCore;
 using Balenthiran.Habits.WebApi;
 using Balenthiran.Habits.WebApi.ExceptionHandling;
 using Balenthiran.Habits.WebApi.Routes;
-using Balenthiran.Habits.Abstractions.Services;
-using Balenthiran.Habits.Database;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddBackendServices(builder.Configuration);
@@ -27,37 +24,11 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference("/scalar/v1");
 }
 
-// When the build-time OpenAPI generator (GetDocument.Insider) loads the app purely to emit the
-// OpenAPI document it runs this top-level code but never serves requests — it must not touch a
-// database, or a Debug build would try to migrate against whatever connection string is configured.
-var generatingOpenApiDocument =
-    System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
-
-if (!generatingOpenApiDocument)
-{
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetService<AppDbContext>();
-    if (dbContext is null)
-    {
-        app.Logger.LogWarning("Skipping database migration — no connection string configured.");
-    }
-    else
-    {
-        // Relational providers migrate; a non-relational provider (the in-memory store used
-        // by integration tests) just materialises its schema. Either way we then seed.
-        if (dbContext.Database.IsRelational())
-        {
-            dbContext.Database.Migrate();
-        }
-        else
-        {
-            dbContext.Database.EnsureCreated();
-        }
-
-        // Seed the starter habit set on first run so the app is never empty (design A5).
-        await scope.ServiceProvider.GetRequiredService<IHabitService>().EnsureSeededAsync();
-    }
-}
+// Booting the API deliberately does no database work: schema migration and starter-habit
+// seeding run out of band (`dotnet ef database update`, see docs/specs/openapi-codegen.md),
+// not on startup. So the backend runs — and the build-time OpenAPI generator loads it — with
+// no live database, even when a connection string is configured. Integration tests provision
+// and seed their own in-memory store (see HabitApiFactory).
 
 app.UseHttpsRedirection();
 
