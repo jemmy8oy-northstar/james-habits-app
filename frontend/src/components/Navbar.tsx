@@ -64,7 +64,7 @@ const Navbar: React.FC = () => {
 
       <div className={`nav-links ${isMenuOpen ? 'open' : ''}`} style={{ display: 'flex', gap: '24px', fontSize: '0.85rem', alignItems: 'center' }}>
         <Link to={config.navigation.home} onClick={() => setIsMenuOpen(false)} style={getLinkStyle(config.navigation.home)}>
-          Home
+          Today
           {isActive(config.navigation.home) && <ActiveDot />}
         </Link>
         {/* Add more nav links here as your project grows */}
