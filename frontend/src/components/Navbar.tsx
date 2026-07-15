@@ -67,6 +67,10 @@ const Navbar: React.FC = () => {
           Today
           {isActive(config.navigation.home) && <ActiveDot />}
         </Link>
+        <Link to={config.navigation.history} onClick={() => setIsMenuOpen(false)} style={getLinkStyle(config.navigation.history)}>
+          History
+          {isActive(config.navigation.history) && <ActiveDot />}
+        </Link>
         {/* Add more nav links here as your project grows */}
         <ThemeToggle />
       </div>

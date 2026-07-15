@@ -14,7 +14,13 @@
  * internals from `getDay`/`upsertEntry` here to the generated RTK-Query hooks
  * `useGetDayQuery` / `useUpsertEntryMutation`. See the note in useTodayData.ts.
  */
-import type { DayView, HabitDayView, EntryUpsertRequest } from '../../api/generatedApi';
+import type {
+  DayView,
+  HabitDayView,
+  EntryUpsertRequest,
+  HabitHistory,
+  DayCompletion,
+} from '../../api/generatedApi';
 
 /** Mirrors the backend `HabitType` enum (declaration order: Boolean=0, Numeric=1). */
 export const HabitType = { Boolean: 0, Numeric: 1 } as const;
@@ -55,14 +61,28 @@ interface SeedHabit {
   priorStreak: number;
   /** value already logged for today, or null if today is still open */
   todayValue: number | null;
+  /**
+   * Older complete days (count back from today), *beyond* the current-streak
+   * window, used only to paint a realistic 30-day history grid. Kept separated
+   * from `priorStreak` by a gap so the current streak stays correct while the
+   * longest streak and the grid have some texture. Ignored by the Today screen.
+   */
+  extraDoneDaysAgo: number[];
 }
 
+/** Inclusive integer range [from, to] as an array — `range(9, 15)` → 9..15. */
+const range = (from: number, to: number): number[] => {
+  const out: number[] = [];
+  for (let i = from; i <= to; i++) out.push(i);
+  return out;
+};
+
 const SEED: SeedHabit[] = [
-  { id: 1, name: 'Sleep', type: HabitType.Numeric, unit: 'h', target: 7.5, sortOrder: 0, doneValue: 7.5, priorStreak: 5, todayValue: null },
-  { id: 2, name: 'Exercise', type: HabitType.Boolean, unit: null, target: null, sortOrder: 1, doneValue: 1, priorStreak: 3, todayValue: null },
-  { id: 3, name: 'Read', type: HabitType.Boolean, unit: null, target: null, sortOrder: 2, doneValue: 1, priorStreak: 8, todayValue: 1 },
-  { id: 4, name: 'Water', type: HabitType.Numeric, unit: 'glasses', target: 8, sortOrder: 3, doneValue: 8, priorStreak: 2, todayValue: 5 },
-  { id: 5, name: 'Meditate', type: HabitType.Boolean, unit: null, target: null, sortOrder: 4, doneValue: 1, priorStreak: 0, todayValue: null },
+  { id: 1, name: 'Sleep', type: HabitType.Numeric, unit: 'h', target: 7.5, sortOrder: 0, doneValue: 7.5, priorStreak: 5, todayValue: null, extraDoneDaysAgo: range(9, 15) },
+  { id: 2, name: 'Exercise', type: HabitType.Boolean, unit: null, target: null, sortOrder: 1, doneValue: 1, priorStreak: 3, todayValue: null, extraDoneDaysAgo: range(8, 12) },
+  { id: 3, name: 'Read', type: HabitType.Boolean, unit: null, target: null, sortOrder: 2, doneValue: 1, priorStreak: 8, todayValue: 1, extraDoneDaysAgo: [14, 16, 20, 25] },
+  { id: 4, name: 'Water', type: HabitType.Numeric, unit: 'glasses', target: 8, sortOrder: 3, doneValue: 8, priorStreak: 2, todayValue: 5, extraDoneDaysAgo: range(6, 10) },
+  { id: 5, name: 'Meditate', type: HabitType.Boolean, unit: null, target: null, sortOrder: 4, doneValue: 1, priorStreak: 0, todayValue: null, extraDoneDaysAgo: [...range(4, 7), 20, 21, 22] },
 ];
 
 /**
@@ -77,6 +97,9 @@ const store = new Map<number, Map<string, number>>();
   for (const h of SEED) {
     const entries = new Map<string, number>();
     for (let back = 1; back <= h.priorStreak; back++) {
+      entries.set(addDays(today, -back), h.doneValue);
+    }
+    for (const back of h.extraDoneDaysAgo) {
       entries.set(addDays(today, -back), h.doneValue);
     }
     if (h.todayValue !== null) entries.set(today, h.todayValue);
@@ -152,3 +175,55 @@ export const upsertEntry = (req: EntryUpsertRequest): HabitDayView => {
   entries.set(String(req.date), value);
   return buildHabitDay(habitMeta(habitId), entries, String(req.date));
 };
+
+/**
+ * Longest run of consecutive complete days ever (mirrors the backend
+ * `HabitCalculator.LongestStreak`). Independent of the current streak — a habit
+ * can have a long past run followed by a break.
+ */
+const longestStreak = (habit: SeedHabit, entries: Map<string, number>): number => {
+  const completeDays = [...entries.entries()]
+    .filter(([, v]) => isComplete(habit, v))
+    .map(([iso]) => iso)
+    .sort();
+  let longest = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const iso of completeDays) {
+    run = prev !== null && iso === addDays(prev, 1) ? run + 1 : 1;
+    if (run > longest) longest = run;
+    prev = iso;
+  }
+  return longest;
+};
+
+/**
+ * GET /api/habits/{id}/history?days=30 — per-habit completion grid ending
+ * `today` (oldest → newest, matching the backend `DayService.GetHistoryAsync`)
+ * plus current and longest streaks.
+ */
+export const getHabitHistory = (
+  habitId: number,
+  days = 30,
+  today: string = todayIso(),
+): HabitHistory => {
+  const habit = habitMeta(habitId);
+  const entries = store.get(habitId)!;
+  const grid: DayCompletion[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(today, -i);
+    const value = entries.get(date) ?? null;
+    grid.push({ date, isComplete: isComplete(habit, value), value });
+  }
+  return {
+    habitId: habit.id,
+    name: habit.name,
+    currentStreak: streakAsOf(habit, entries, today),
+    longestStreak: longestStreak(habit, entries),
+    days: grid,
+  };
+};
+
+/** Ids of the (active) habits, in display order — the History page iterates these. */
+export const habitIds = (): number[] =>
+  SEED.slice().sort((a, b) => a.sortOrder - b.sortOrder).map(h => h.id);
