@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css'
 import Navbar from './components/Navbar'
+import Today from './pages/Today'
 import Home from './pages/Home'
 import ScrollToTop from './components/ScrollToTop'
 import { ThemeProvider } from './context/ThemeContext'
@@ -14,7 +15,8 @@ function App() {
           <Navbar />
           <main>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Today />} />
+              <Route path="/status" element={<Home />} />
             </Routes>
           </main>
           <footer className="container" style={{
