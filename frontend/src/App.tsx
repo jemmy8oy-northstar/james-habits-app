@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css'
 import Navbar from './components/Navbar'
 import Today from './pages/Today'
+import History from './pages/History'
 import Home from './pages/Home'
 import ScrollToTop from './components/ScrollToTop'
 import { ThemeProvider } from './context/ThemeContext'
@@ -16,6 +17,7 @@ function App() {
           <main>
             <Routes>
               <Route path="/" element={<Today />} />
+              <Route path="/history" element={<History />} />
               <Route path="/status" element={<Home />} />
             </Routes>
           </main>
